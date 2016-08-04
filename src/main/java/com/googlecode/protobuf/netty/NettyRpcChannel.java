@@ -54,16 +54,6 @@ public class NettyRpcChannel implements RpcChannel, BlockingRpcChannel {
 		return new NettyRpcController();
 	}
 	
-	public void callMethod(MethodDescriptor method, RpcController controller,
-			Message request, Message responsePrototype, RpcCallback<Message> done) {
-		int nextSeqId = (done == null) ? -1 : handler.getNextSeqId();
-		Message rpcRequest = buildRequest(done != null, nextSeqId, false, method, request);
-		if (done != null) {
-			handler.registerCallback(nextSeqId, new ResponsePrototypeRpcCallback(controller, responsePrototype, done));
-		}
-		channel.write(rpcRequest);
-	}
-
 	public Message callBlockingMethod(MethodDescriptor method,
 			RpcController controller, Message request, Message responsePrototype)
 			throws ServiceException {
@@ -85,13 +75,23 @@ public class NettyRpcChannel implements RpcChannel, BlockingRpcChannel {
 			}
 		}
 		if (rpcCallback.getRpcResponse() != null && rpcCallback.getRpcResponse().hasErrorCode()) {
-			// TODO: should we only throw this if the error code matches the 
+			// TODO: should we only throw this if the error code matches the
 			// case where the server call threw a ServiceException?
 			throw new ServiceException(rpcCallback.getRpcResponse().getErrorMessage());
 		}
 		return callback.getMessage();
 	}
-	
+
+	public void callMethod(MethodDescriptor method, RpcController controller,
+						   Message request, Message responsePrototype, RpcCallback<Message> done) {
+		int nextSeqId = (done == null) ? -1 : handler.getNextSeqId();
+		Message rpcRequest = buildRequest(done != null, nextSeqId, false, method, request);
+		if (done != null) {
+			handler.registerCallback(nextSeqId, new ResponsePrototypeRpcCallback(controller, responsePrototype, done));
+		}
+		channel.write(rpcRequest);
+	}
+
 	public void close() {
 		channel.close().awaitUninterruptibly();
 	}
@@ -127,8 +127,8 @@ public class NettyRpcChannel implements RpcChannel, BlockingRpcChannel {
 			this.responsePrototype = responsePrototype;
 			this.callback = callback;
 		}
-		
 		public void run(RpcResponse message) {
+
 			rpcResponse = message;
 			try {
 				Message response = (message == null || !message.hasResponseMessage()) ? 
